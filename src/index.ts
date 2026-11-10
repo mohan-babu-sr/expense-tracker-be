@@ -5,7 +5,7 @@ import { seedCategories } from './services/seed';
 
 // Start-up order (design §3): env → connect DB → seed categories → listen.
 async function main(): Promise<void> {
-  await connectDb(env.MONGODB_URI);
+  await connectDb(env.MONGODB_URI, env.MONGODB_DB_NAME, env.NODE_ENV === 'production');
   await seedCategories();
 
   const app = createApp();
