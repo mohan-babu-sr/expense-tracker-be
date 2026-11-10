@@ -1,4 +1,4 @@
-import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import morgan from 'morgan';
 import { errorHandler } from './middleware/error-handler';
@@ -12,8 +12,15 @@ import { apiRouter } from './routes';
 export function createApp(): express.Express {
   const app = express();
 
-  app.use(cors()); // dev proxy makes this unnecessary for the Angular app, but handy for REST clients
+  // No CORS (design §8.1): the browser only ever calls its own origin — Vercel rewrites /api to Render in
+  // production, proxy.conf.json does it in dev. Without CORS headers, other websites' scripts can't read the API.
+  // (REST clients like the VS Code extension aren't browsers, so they still work.)
+
+  // Render sits behind one load balancer; trusting 1 hop lets Express read X-Forwarded-Proto/-For from it.
+  app.set('trust proxy', 1);
+
   app.use(express.json());
+  app.use(cookieParser()); // fills req.cookies — the session cookie (design §8.1)
   app.use(morgan('dev'));
 
   app.use('/api', apiRouter);

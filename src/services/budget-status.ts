@@ -26,18 +26,19 @@ export function budgetLevel(spent: number, budget: number): BudgetLevel {
 }
 
 /**
- * All budgets with what was spent against them in `month` (R8 AC2, AC5).
+ * All of a group's budgets with what was spent against them in `month` (R8 AC2, AC5).
  * One aggregation gets spending for every category; the overall total is their sum.
  */
 export async function getBudgetStatuses(
+  groupId: Types.ObjectId,
   month: string,
 ): Promise<{ overall: BudgetStatus | null; items: BudgetStatus[] }> {
   const { start, end } = monthRange(month);
 
   const [budgets, spentRows] = await Promise.all([
-    Budget.find().populate('category'),
+    Budget.find({ groupId }).populate('category'),
     Expense.aggregate<{ _id: Types.ObjectId; spent: number }>([
-      { $match: { deletedAt: null, date: { $gte: start, $lt: end } } },
+      { $match: { groupId, deletedAt: null, date: { $gte: start, $lt: end } } },
       { $group: { _id: '$categoryId', spent: { $sum: '$amount' } } },
     ]),
   ]);

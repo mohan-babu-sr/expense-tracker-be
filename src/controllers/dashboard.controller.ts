@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
+import { groupIdOf } from '../middleware/auth';
 import { Category } from '../models/category.model';
-import { Expense } from '../models/expense.model';
+import { EXPENSE_POPULATE, Expense } from '../models/expense.model';
 import { getBudgetStatuses } from '../services/budget-status';
 import { addMonths, currentMonth, daysInMonth, monthRange, todayIso } from '../services/date-utils';
 import type { DashboardQuery } from '../validators/dashboard.schema';
@@ -21,13 +22,14 @@ interface FacetResult {
  */
 export async function getDashboard(req: Request, res: Response): Promise<void> {
   const { month = currentMonth() } = req.query as DashboardQuery;
+  const groupId = groupIdOf(req); // every query below is scoped to the caller's group (design §8.2)
   const firstMonth = addMonths(month, -5);
   const { start: windowStart } = monthRange(firstMonth);
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
   const [[facets], recent, budgets] = await Promise.all([
     Expense.aggregate<FacetResult>([
-      { $match: { deletedAt: null, date: { $gte: windowStart, $lt: monthEnd } } },
+      { $match: { groupId, deletedAt: null, date: { $gte: windowStart, $lt: monthEnd } } },
       {
         $facet: {
           byMonth: [
@@ -50,11 +52,11 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       },
     ]),
     // 5 most recent expenses of the selected month (R7 AC4).
-    Expense.find({ deletedAt: null, date: { $gte: monthStart, $lt: monthEnd } })
+    Expense.find({ groupId, deletedAt: null, date: { $gte: monthStart, $lt: monthEnd } })
       .sort({ date: -1, _id: -1 })
       .limit(5)
-      .populate('category'),
-    getBudgetStatuses(month),
+      .populate(EXPENSE_POPULATE),
+    getBudgetStatuses(groupId, month),
   ]);
 
   const monthTotals = new Map(facets.byMonth.map((m) => [m._id, m]));

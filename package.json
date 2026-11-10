@@ -7,19 +7,25 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:copy": "tsx src/scripts/copy-db.ts",
+    "migrate:v2": "tsx src/scripts/migrate-v2.ts"
   },
   "dependencies": {
-    "cors": "^2.8.6",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.12.0",
     "morgan": "^1.12.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",

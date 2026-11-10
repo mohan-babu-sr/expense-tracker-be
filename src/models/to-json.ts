@@ -10,3 +10,18 @@ export const toJsonOptions = {
     return ret;
   },
 };
+
+/**
+ * Same as `toJsonOptions`, but also removes the given (secret / internal) fields, e.g. `pinHash`.
+ * Safety net: even if a controller accidentally sends a whole user document, the hash never leaves the server.
+ */
+export function toJsonOptionsWithout(...hidden: string[]) {
+  return {
+    ...toJsonOptions,
+    transform: (_doc: unknown, ret: Record<string, unknown>) => {
+      delete ret._id;
+      for (const field of hidden) delete ret[field];
+      return ret;
+    },
+  };
+}

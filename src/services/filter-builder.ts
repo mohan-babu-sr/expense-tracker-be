@@ -1,10 +1,10 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { DEFAULT_USER, type IExpense } from '../models/expense.model';
+import type { IExpense } from '../models/expense.model';
 import type { ExpenseFilter } from '../validators/expense.schema';
 import { addDays, currentMonth, monthRange, parseIsoDate, toIsoDate } from './date-utils';
 
 export interface BuiltExpenseFilter {
-  /** MongoDB filter — always includes `deletedAt: null`. */
+  /** MongoDB filter — always includes `groupId` and `deletedAt: null`. */
   filter: QueryFilter<IExpense>;
   /** Inclusive date range as YYYY-MM-DD (null = open-ended). Used for the CSV file name (T5). */
   from: string | null;
@@ -18,8 +18,9 @@ export const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g,
  * Builds the expense query from validated filters — design §2 "Common expense filters" (R6).
  * Values are real ObjectIds/Dates (not strings) because aggregation pipelines don't auto-cast.
  */
-export function buildExpenseFilter(f: ExpenseFilter): BuiltExpenseFilter {
-  const filter: QueryFilter<IExpense> = { deletedAt: null };
+export function buildExpenseFilter(f: ExpenseFilter, groupId: Types.ObjectId): BuiltExpenseFilter {
+  // groupId FIRST, always (design §8.2 scoping rule) — a filter can never reach another group's expenses.
+  const filter: QueryFilter<IExpense> = { groupId, deletedAt: null };
   let from: string | null;
   let to: string | null;
 
@@ -45,10 +46,8 @@ export function buildExpenseFilter(f: ExpenseFilter): BuiltExpenseFilter {
   if (f.paymentMethod) {
     filter.paymentMethod = f.paymentMethod;
   }
-  if (f.user) {
-    // Queries don't see schema defaults: expenses saved before R12 have NO `user` field but count as
-    // the default user. `null` in $in matches both null and a missing field.
-    filter.user = f.user === DEFAULT_USER ? { $in: [DEFAULT_USER, null] } : f.user;
+  if (f.userId) {
+    filter.userId = new Types.ObjectId(f.userId);
   }
   if (f.q) {
     const regex = new RegExp(escapeRegex(f.q), 'i');

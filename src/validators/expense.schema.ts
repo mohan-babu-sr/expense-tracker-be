@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_USER, PAYMENT_METHODS, USERS } from '../models/expense.model';
+import { PAYMENT_METHODS } from '../models/expense.model';
 import { todayIso } from '../services/date-utils';
 import {
   amountSchema,
@@ -21,11 +21,9 @@ export const expenseBodySchema = z.object({
     (v) => (v === '' || v === null ? undefined : v),
     z.enum(PAYMENT_METHODS, { error: `Payment method must be one of ${PAYMENT_METHODS.join(', ')}` }).optional(),
   ),
-  // R12: missing / null / '' → default user, so older clients (and PUT without the field) still work.
-  user: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? DEFAULT_USER : v),
-    z.enum(USERS, { error: `User must be one of ${USERS.join(', ')}` }),
-  ),
+  // R13 AC9: the member who spent it. Missing / null / '' → the signed-in user (decided in the controller,
+  // which also checks the id is an active member of the same group).
+  userId: z.preprocess((v) => (v === '' || v === null ? undefined : v), objectIdSchema.optional()),
 });
 export type ExpenseBody = z.infer<typeof expenseBodySchema>;
 
@@ -42,7 +40,7 @@ export const expenseFilterSchema = z
       .transform((v) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : []))
       .pipe(z.array(objectIdSchema)),
     paymentMethod: z.enum(PAYMENT_METHODS).optional(),
-    user: z.enum(USERS).optional(),
+    userId: objectIdSchema.optional(),
     q: z.string().trim().max(100).optional(),
   })
   .refine((f) => !f.from || !f.to || f.from <= f.to, { message: '"from" must be on or before "to"', path: ['to'] });
