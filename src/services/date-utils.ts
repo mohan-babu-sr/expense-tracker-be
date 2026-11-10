@@ -63,3 +63,15 @@ export function daysInMonth(month: string): number {
 export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 86_400_000);
 }
+
+/**
+ * Adds whole months to a UTC-midnight date, clamping to the last day of the target month
+ * (R14 AC5): 31 Jan + 1 → 28 Feb (29 in a leap year), 31 Mar + 3 → 30 Jun.
+ * Plain `setUTCMonth` would roll over instead: 31 Jan + 1 → 3 Mar.
+ */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+}

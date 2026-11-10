@@ -172,6 +172,7 @@ export async function adminUpdateUser(req: Request, res: Response): Promise<void
     const group = await findGroupOr400(body.groupId);
     user.groupId = group._id;
     user.role = await roleForNewMember(group._id, user._id);
+    user.monthlyLimit = null; // set by the old group's owner (R15 AC7)
     signOut = true;
   }
 

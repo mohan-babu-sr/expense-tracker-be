@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "db:copy": "tsx src/scripts/copy-db.ts",
-    "migrate:v2": "tsx src/scripts/migrate-v2.ts"
+    "migrate:v2": "tsx src/scripts/migrate-v2.ts",
+    "migrate:v3": "tsx src/scripts/migrate-v3.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

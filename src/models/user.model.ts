@@ -26,6 +26,8 @@ export interface IUser extends Lockable {
   groupId: Types.ObjectId;
   role: UserRole;
   status: UserStatus;
+  /** Monthly spending limit set by the group owner; null = no limit (R15, design §10.1). */
+  monthlyLimit: number | null;
 }
 
 export type UserDoc = HydratedDocument<IUser>;
@@ -38,6 +40,7 @@ const userSchema = new Schema<IUser>(
     groupId: { type: Schema.Types.ObjectId, ref: 'Group', required: true },
     role: { type: String, enum: USER_ROLES, required: true, default: 'member' },
     status: { type: String, enum: USER_STATUSES, required: true, default: 'pending' },
+    monthlyLimit: { type: Number, default: null, min: 0.01 },
     failedAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date, default: null },
     tokenVersion: { type: Number, default: 0 },

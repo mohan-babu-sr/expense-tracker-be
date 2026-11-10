@@ -5,6 +5,7 @@ import { HttpError } from '../middleware/error-handler';
 import { Budget } from '../models/budget.model';
 import { Category } from '../models/category.model';
 import { Expense } from '../models/expense.model';
+import { Upcoming } from '../models/upcoming.model';
 import type { CategoryBody } from '../validators/category.schema';
 
 /* Every query is scoped to the caller's group (design §8.2) — each group has its own categories. */
@@ -87,5 +88,8 @@ export async function deleteCategory(req: Request, res: Response): Promise<void>
 
   await category.deleteOne();
   await Budget.deleteOne({ groupId: category.groupId, categoryId: category._id }); // its budget is meaningless now
+  // Upcoming items don't block the delete (they are plans, not records) — they move to "Other" (R14).
+  const other = await Category.findOne({ groupId: category.groupId, isSystem: true });
+  if (other) await Upcoming.updateMany({ groupId: category.groupId, categoryId: category._id }, { categoryId: other._id });
   res.status(204).end();
 }

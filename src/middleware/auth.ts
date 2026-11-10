@@ -77,3 +77,15 @@ export const requireMember: RequestHandler = (req, _res, next) => {
   req.groupId = req.user.groupId;
   next();
 };
+
+/**
+ * R15 AC5 — only the group owner may change budgets and member limits. Use AFTER requireMember.
+ * The role comes from the user document requireAuth loaded from the DB, never from the client;
+ * hiding buttons in Angular is only UX, this 403 is the real rule.
+ */
+export const requireOwner: RequestHandler = (req, _res, next) => {
+  if (req.user?.role !== 'owner') {
+    throw new HttpError(403, 'Only the group owner can change budgets', undefined, { code: 'NOT_OWNER' });
+  }
+  next();
+};

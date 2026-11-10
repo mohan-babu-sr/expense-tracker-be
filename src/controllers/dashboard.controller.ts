@@ -3,6 +3,7 @@ import { groupIdOf } from '../middleware/auth';
 import { Category } from '../models/category.model';
 import { EXPENSE_POPULATE, Expense } from '../models/expense.model';
 import { getBudgetStatuses } from '../services/budget-status';
+import { getComingUp } from '../services/coming-up';
 import { addMonths, currentMonth, daysInMonth, monthRange, todayIso } from '../services/date-utils';
 import type { DashboardQuery } from '../validators/dashboard.schema';
 
@@ -14,7 +15,7 @@ interface FacetResult {
 }
 
 /**
- * GET /api/dashboard?month=YYYY-MM — everything the dashboard page needs in one call (R7, R8 AC4).
+ * GET /api/dashboard?month=YYYY-MM — everything the dashboard page needs in one call (R7, R8 AC4, R15 AC6).
  *
  * One aggregation over the 6-month window uses `$facet` to run two sub-pipelines on the same
  * matched documents: totals per month (bar chart + this month + previous month) and
@@ -27,7 +28,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
   const { start: windowStart } = monthRange(firstMonth);
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
-  const [[facets], recent, budgets] = await Promise.all([
+  const [[facets], recent, budgets, comingUp] = await Promise.all([
     Expense.aggregate<FacetResult>([
       { $match: { groupId, deletedAt: null, date: { $gte: windowStart, $lt: monthEnd } } },
       {
@@ -57,6 +58,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       .limit(5)
       .populate(EXPENSE_POPULATE),
     getBudgetStatuses(groupId, month),
+    getComingUp(groupId), // R14 AC6: ignores `month`
   ]);
 
   const monthTotals = new Map(facets.byMonth.map((m) => [m._id, m]));
@@ -86,6 +88,8 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
   });
 
   const overBudget = [budgets.overall, ...budgets.items].filter((b) => b?.status === 'danger');
+  // R15 AC6: members whose balance is below zero join the over-budget warning.
+  const overMembers = budgets.members.filter((m) => m.balance !== null && m.balance < 0);
 
   res.json({
     month,
@@ -98,5 +102,8 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     last6Months,
     recent,
     overBudget,
+    overMembers,
+    members: budgets.members, // "My balance" card (R15 AC6)
+    comingUp, // "Coming up" card (R14 AC6)
   });
 }
