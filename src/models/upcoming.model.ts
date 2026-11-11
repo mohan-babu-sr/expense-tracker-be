@@ -66,5 +66,11 @@ upcomingSchema.virtual('category', {
 
 // Open list = { groupId, doneAt: null } sorted by dueDate — design §9.1.
 upcomingSchema.index({ groupId: 1, doneAt: 1, dueDate: 1 });
+// T41: deleted items are removed permanently 30 days after deletion (same rule as expenses). "Done" items are
+// not affected — they have doneAt set but deletedAt null.
+upcomingSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { deletedAt: { $type: 'date' } } },
+);
 
 export const Upcoming = model<IUpcoming>('Upcoming', upcomingSchema);

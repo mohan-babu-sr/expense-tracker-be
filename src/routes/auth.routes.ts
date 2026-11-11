@@ -5,6 +5,7 @@ import {
   changePin,
   login,
   logout,
+  logoutAll,
   me,
   register,
   updateMe,
@@ -42,6 +43,8 @@ authRouter.post('/register', signInLimiter, validate(registerSchema), asyncHandl
 authRouter.post('/login', signInLimiter, validate(loginSchema), asyncHandler(login));
 authRouter.post('/admin/login', signInLimiter, validate(adminLoginSchema), asyncHandler(adminLogin));
 authRouter.post('/logout', logout);
+// R13 AC1a: needs a valid session (it changes the account). Pending users and the admin may use it too.
+authRouter.post('/logout-all', requireAuth, asyncHandler(logoutAll));
 authRouter.get('/me', requireAuth, asyncHandler(me));
 
 /** /api/me — the signed-in user's own account (R13 AC4). */

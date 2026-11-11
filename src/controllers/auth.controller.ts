@@ -126,6 +126,22 @@ export function logout(_req: Request, res: Response): void {
   res.status(204).end();
 }
 
+/**
+ * POST /api/auth/logout-all — R13 AC1a (requireAuth already ran).
+ * Plain logout can only delete THIS browser's cookie; a copy of the token elsewhere would stay valid until it
+ * expires (30 days). Bumping tokenVersion makes requireAuth reject every token issued so far — all devices at once.
+ * `$inc` is atomic, so it can't race with another request that saves the account.
+ */
+export async function logoutAll(req: Request, res: Response): Promise<void> {
+  if (req.admin) {
+    await Admin.updateOne({ _id: req.admin._id }, { $inc: { tokenVersion: 1 } });
+  } else {
+    await User.updateOne({ _id: req.user!._id }, { $inc: { tokenVersion: 1 } });
+  }
+  clearSessionCookie(res);
+  res.status(204).end();
+}
+
 /** GET /api/auth/me — who is signed in (requireAuth already ran). */
 export async function me(req: Request, res: Response): Promise<void> {
   if (req.admin) {

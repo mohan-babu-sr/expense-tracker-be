@@ -87,5 +87,11 @@ expenseSchema.index({ groupId: 1, date: -1, _id: -1 });
 expenseSchema.index({ groupId: 1, categoryId: 1, date: -1 });
 expenseSchema.index({ groupId: 1, merchant: 1 });
 expenseSchema.index({ groupId: 1, userId: 1, date: -1 });
+// T41: MongoDB permanently removes soft-deleted expenses 30 days after deletion. Partial = only documents whose
+// deletedAt is a real date are indexed, so active expenses (null) can never expire.
+expenseSchema.index(
+  { deletedAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { deletedAt: { $type: 'date' } } },
+);
 
 export const Expense = model<IExpense>('Expense', expenseSchema);

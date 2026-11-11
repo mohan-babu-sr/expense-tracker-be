@@ -21,7 +21,9 @@ export function createApp(): express.Express {
 
   app.use(express.json());
   app.use(cookieParser()); // fills req.cookies — the session cookie (design §8.1)
-  app.use(morgan('dev'));
+  // Skip the health check: the keep-awake pinger (design §8.5, T40) calls it every 10 min and would bury the
+  // real requests in Render's logs.
+  app.use(morgan('dev', { skip: (req) => req.originalUrl === '/api/health' }));
 
   app.use('/api', apiRouter);
 
