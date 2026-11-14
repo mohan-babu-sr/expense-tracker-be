@@ -10,6 +10,13 @@ export interface IGroup {
   codeLower: string;
   /** The user who created it (null when the admin created it). */
   createdBy: Types.ObjectId | null;
+  /**
+   * First month (`YYYY-MM`) of the monthly plan (R17 AC3, design §12.2): salaries are required and savings count
+   * from here. Set by createGroup() for new groups and by migrate:v4 for existing ones. Missing = plan not started
+   * (nothing is blocked). Deliberately NO schema default: Mongoose also applies defaults to documents it loads,
+   * which would silently start the plan for un-migrated groups.
+   */
+  planStartMonth?: string;
 }
 
 /** Group code rule (R13 AC2): 6–20 letters, digits or "-". Shared with the zod schemas. */
@@ -21,6 +28,7 @@ const groupSchema = new Schema<IGroup>(
     code: { type: String, required: true, trim: true, match: GROUP_CODE_PATTERN },
     codeLower: { type: String, required: true, unique: true },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    planStartMonth: { type: String, match: /^\d{4}-(0[1-9]|1[0-2])$/ },
   },
   { timestamps: true, toJSON: toJsonOptions },
 );

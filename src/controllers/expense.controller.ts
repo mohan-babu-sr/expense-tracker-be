@@ -9,6 +9,7 @@ import { User } from '../models/user.model';
 import { toCsv } from '../services/csv';
 import { parseIsoDate, toIsoDate, todayIso } from '../services/date-utils';
 import { buildExpenseFilter, escapeRegex } from '../services/filter-builder';
+import { assertSalaryEntered } from '../services/plan';
 import type { ExpenseBody, ExpenseFilter, ExpenseListQuery, MerchantQuery } from '../validators/expense.schema';
 
 /*
@@ -147,7 +148,9 @@ export async function getExpense(req: Request, res: Response): Promise<void> {
 
 /** POST /api/expenses → 201 (R1). */
 export async function createExpense(req: Request, res: Response): Promise<void> {
-  const expense = await Expense.create(await toExpenseFields(req, req.body as ExpenseBody));
+  const fields = await toExpenseFields(req, req.body as ExpenseBody);
+  await assertSalaryEntered(fields.groupId, fields.userId, fields.date); // R17 AC3: salary first
+  const expense = await Expense.create(fields);
   await expense.populate(EXPENSE_POPULATE);
   res.status(201).json(expense);
 }
@@ -155,7 +158,14 @@ export async function createExpense(req: Request, res: Response): Promise<void> 
 /** PUT /api/expenses/:id — full replace, same body as POST (R3). */
 export async function updateExpense(req: Request, res: Response): Promise<void> {
   const expense = await findActiveOr404(req);
-  expense.set(await toExpenseFields(req, req.body as ExpenseBody, expense));
+  const fields = await toExpenseFields(req, req.body as ExpenseBody, expense);
+  // R17 AC3: only when the expense moves to another month or member — fixing the amount/note of an
+  // existing expense is never blocked.
+  const monthOf = (d: Date) => toIsoDate(d).slice(0, 7);
+  if (monthOf(fields.date) !== monthOf(expense.date) || fields.userId !== expense.userId.toString()) {
+    await assertSalaryEntered(fields.groupId, fields.userId, fields.date);
+  }
+  expense.set(fields);
   await expense.save();
   await expense.populate(EXPENSE_POPULATE);
   res.json(expense);

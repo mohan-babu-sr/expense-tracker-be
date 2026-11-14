@@ -4,6 +4,7 @@ import { Category } from '../models/category.model';
 import { EXPENSE_POPULATE, Expense } from '../models/expense.model';
 import { getBudgetStatuses } from '../services/budget-status';
 import { getComingUp } from '../services/coming-up';
+import { salarySection } from '../services/plan';
 import { addMonths, currentMonth, daysInMonth, monthRange, todayIso } from '../services/date-utils';
 import type { DashboardQuery } from '../validators/dashboard.schema';
 
@@ -28,7 +29,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
   const { start: windowStart } = monthRange(firstMonth);
   const { start: monthStart, end: monthEnd } = monthRange(month);
 
-  const [[facets], recent, budgets, comingUp] = await Promise.all([
+  const [[facets], recent, budgets, comingUp, salaries] = await Promise.all([
     Expense.aggregate<FacetResult>([
       { $match: { groupId, deletedAt: null, date: { $gte: windowStart, $lt: monthEnd } } },
       {
@@ -59,6 +60,9 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       .populate(EXPENSE_POPULATE),
     getBudgetStatuses(groupId, month),
     getComingUp(groupId), // R14 AC6: ignores `month`
+    // R17 AC4 salary banner only. The Monthly plan card is gone (R19 AC7), so no monthPlan/getSavings here:
+    // getSavings walks every plan month, which the dashboard no longer needs.
+    salarySection(groupId, month),
   ]);
 
   const monthTotals = new Map(facets.byMonth.map((m) => [m._id, m]));
@@ -105,5 +109,6 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     overMembers,
     members: budgets.members, // "My balance" card (R15 AC6)
     comingUp, // "Coming up" card (R14 AC6)
+    plan: { month, started: salaries.started, missing: salaries.missing }, // R17 AC4 banner
   });
 }

@@ -2,6 +2,7 @@ import type { HydratedDocument, Types } from 'mongoose';
 import { HttpError } from '../middleware/error-handler';
 import { Category } from '../models/category.model';
 import { Group, type IGroup } from '../models/group.model';
+import { currentMonth } from './date-utils';
 import { seedCategoriesForGroup } from './seed';
 
 export type GroupDoc = HydratedDocument<IGroup>;
@@ -22,7 +23,7 @@ export async function createGroup(input: {
 
   let group: GroupDoc;
   try {
-    group = await Group.create(input);
+    group = await Group.create({ ...input, planStartMonth: currentMonth() }); // R17 AC3: plan starts at creation
   } catch (err) {
     // Two people picking the same code at the same moment: the unique index catches the second one.
     if ((err as { code?: unknown }).code === 11000) throw codeTaken();

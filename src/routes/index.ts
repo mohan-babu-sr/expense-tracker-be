@@ -8,6 +8,7 @@ import { budgetRouter } from './budget.routes';
 import { categoryRouter } from './category.routes';
 import { dashboardRouter } from './dashboard.routes';
 import { expenseRouter } from './expense.routes';
+import { planRouter, regularItemRouter, savingsRouter } from './plan.routes';
 import { upcomingRouter } from './upcoming.routes';
 
 export const apiRouter = Router();
@@ -36,3 +37,6 @@ apiRouter.use('/expenses', memberOnly, expenseRouter);
 apiRouter.use('/budgets', memberOnly, budgetRouter);
 apiRouter.use('/dashboard', memberOnly, dashboardRouter);
 apiRouter.use('/upcoming', memberOnly, upcomingRouter);
+apiRouter.use('/plan', memberOnly, planRouter);
+apiRouter.use('/regular-items', memberOnly, regularItemRouter);
+apiRouter.use('/savings', memberOnly, savingsRouter);
