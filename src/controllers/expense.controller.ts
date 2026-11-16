@@ -56,6 +56,16 @@ async function findActiveOr404(req: Request) {
   return expense;
 }
 
+/**
+ * R23 AC4 (design §14.2): only the member the expense belongs to may change, delete or restore it — even if
+ * someone else added it for them. 403 names the owner so the message is useful.
+ */
+async function assertOwner(req: Request, expense: IExpense): Promise<void> {
+  if (expense.userId.toString() === req.user!.id) return;
+  const owner = await User.findById(expense.userId, 'name').lean<{ name: string }>();
+  throw new HttpError(403, owner ? `Only ${owner.name} can change this expense` : 'This expense can no longer be changed');
+}
+
 /** GET /api/expenses — filters + pagination, newest first, category + user populated (R2, R6, NFR1). */
 export async function listExpenses(req: Request, res: Response): Promise<void> {
   const query = req.query as unknown as ExpenseListQuery;
@@ -158,6 +168,7 @@ export async function createExpense(req: Request, res: Response): Promise<void> 
 /** PUT /api/expenses/:id — full replace, same body as POST (R3). */
 export async function updateExpense(req: Request, res: Response): Promise<void> {
   const expense = await findActiveOr404(req);
+  await assertOwner(req, expense);
   const fields = await toExpenseFields(req, req.body as ExpenseBody, expense);
   // R17 AC3: only when the expense moves to another month or member — fixing the amount/note of an
   // existing expense is never blocked.
@@ -174,6 +185,7 @@ export async function updateExpense(req: Request, res: Response): Promise<void> 
 /** DELETE /api/expenses/:id → 204. Soft delete: sets deletedAt so Undo can restore (R4). */
 export async function deleteExpense(req: Request, res: Response): Promise<void> {
   const expense = await findActiveOr404(req);
+  await assertOwner(req, expense);
   expense.deletedAt = new Date();
   await expense.save();
   res.status(204).end();
@@ -184,6 +196,7 @@ export async function restoreExpense(req: Request, res: Response): Promise<void>
   const groupId: Types.ObjectId = groupIdOf(req);
   const expense = await Expense.findOne({ _id: req.params.id as string, groupId });
   if (!expense) throw new HttpError(404, 'Expense not found');
+  await assertOwner(req, expense);
 
   expense.deletedAt = null;
   // Its category may have been deleted while the expense was soft-deleted

@@ -60,3 +60,7 @@ export type UpdateMeBody = z.infer<typeof updateMeSchema>;
 /** PUT /me/pin (R13 AC4). */
 export const changePinSchema = z.strictObject({ currentPin: enteredSecret, newPin });
 export type ChangePinBody = z.infer<typeof changePinSchema>;
+
+/** POST /me/verify-pin (R22 AC2) — re-enter the sign-in PIN to show hidden salaries. */
+export const verifyPinSchema = z.strictObject({ pin: enteredSecret });
+export type VerifyPinBody = z.infer<typeof verifyPinSchema>;

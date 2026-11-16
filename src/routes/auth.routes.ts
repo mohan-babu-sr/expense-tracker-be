@@ -9,6 +9,7 @@ import {
   me,
   register,
   updateMe,
+  verifyPin,
 } from '../controllers/auth.controller';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth, requireUser } from '../middleware/auth';
@@ -19,6 +20,7 @@ import {
   loginSchema,
   registerSchema,
   updateMeSchema,
+  verifyPinSchema,
 } from '../validators/auth.schema';
 
 /**
@@ -53,3 +55,4 @@ export const meRouter = Router();
 meRouter.use(requireAuth, requireUser);
 meRouter.put('/', validate(updateMeSchema), asyncHandler(updateMe));
 meRouter.put('/pin', validate(changePinSchema), asyncHandler(changePin));
+meRouter.post('/verify-pin', validate(verifyPinSchema), asyncHandler(verifyPin));

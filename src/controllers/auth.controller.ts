@@ -14,6 +14,7 @@ import type {
   LoginBody,
   RegisterBody,
   UpdateMeBody,
+  VerifyPinBody,
 } from '../validators/auth.schema';
 
 /** `Me` — what the client needs after sign-in / on start-up (design §8.3 GET /auth/me). */
@@ -180,5 +181,19 @@ export async function changePin(req: Request, res: Response): Promise<void> {
   await user.save();
 
   startUserSession(res, user);
+  res.status(204).end();
+}
+
+/**
+ * POST /api/me/verify-pin — R22 AC2 (design §14.1): "is this my PIN?" before Plan shows other members' salaries.
+ * Changes nothing. Wrong PIN → 400 field error (not 401, which would sign the user out) and counts toward the
+ * same lockout as sign-in, so this can't be used to guess the PIN faster.
+ */
+export async function verifyPin(req: Request, res: Response): Promise<void> {
+  const user = req.user!;
+  const { pin } = req.body as VerifyPinBody;
+  await verifySecretWithLockout(User, user, pin, user.pinHash, () => {
+    return new HttpError(400, 'PIN is incorrect', { pin: 'PIN is incorrect' });
+  });
   res.status(204).end();
 }
