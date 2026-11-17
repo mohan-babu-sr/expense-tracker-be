@@ -10,6 +10,7 @@ import { dashboardRouter } from './dashboard.routes';
 import { expenseRouter } from './expense.routes';
 import { planRouter, regularItemRouter, savingsRouter } from './plan.routes';
 import { upcomingRouter } from './upcoming.routes';
+import { webauthnRouter } from './webauthn.routes';
 
 export const apiRouter = Router();
 
@@ -24,6 +25,7 @@ apiRouter.get('/health', (_req, res) => {
 
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/me', meRouter);
+apiRouter.use('/webauthn', webauthnRouter); // passkeys (R26) — own guards inside
 apiRouter.use('/admin', adminRouter); // own guards inside (admin only, password change first)
 
 /**

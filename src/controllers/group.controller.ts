@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { groupIdOf } from '../middleware/auth';
 import { HttpError } from '../middleware/error-handler';
 import { Group } from '../models/group.model';
+import { Passkey } from '../models/passkey.model';
 import { User } from '../models/user.model';
 
 /**
@@ -46,5 +47,6 @@ export async function approvePending(req: Request, res: Response): Promise<void>
 export async function rejectPending(req: Request, res: Response): Promise<void> {
   const user = await findPendingOr404(req);
   await user.deleteOne(); // its session stops working: requireAuth can't find the account any more
+  await Passkey.deleteMany({ userId: user._id }); // design §15.4
   res.status(204).end();
 }

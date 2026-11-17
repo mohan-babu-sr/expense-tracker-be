@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { HttpError } from '../middleware/error-handler';
 import { Admin, type AdminDoc } from '../models/admin.model';
 import { Group } from '../models/group.model';
+import { Passkey } from '../models/passkey.model';
 import { User, type UserDoc } from '../models/user.model';
 import { createGroup, findGroupByCode, removeGroup, type GroupDoc } from '../services/group.service';
 import { verifySecretWithLockout } from '../services/lockout';
@@ -24,15 +25,18 @@ type Me =
       user: ReturnType<UserDoc['toJSON']>;
       group: { id: string; name: string; code: string } | null;
       status: string;
+      /** Registered fingerprint / Face ID devices (R26 AC6, R27 AC1). */
+      passkeyCount: number;
     }
   | { kind: 'admin'; username: string; mustChangePassword: boolean };
 
-function userMe(user: UserDoc, group: GroupDoc | null): Me {
+export async function userMe(user: UserDoc, group: GroupDoc | null): Promise<Me> {
   return {
     kind: 'user',
     user: user.toJSON(), // toJSON removes pinHash & lockout fields (user.model.ts)
     group: group && { id: group.id as string, name: group.name, code: group.code },
     status: user.status,
+    passkeyCount: await Passkey.countDocuments({ userId: user._id }),
   };
 }
 
@@ -42,7 +46,7 @@ const adminMe = (admin: AdminDoc): Me => ({
   mustChangePassword: admin.mustChangePassword,
 });
 
-const startUserSession = (res: Response, user: UserDoc) =>
+export const startUserSession = (res: Response, user: UserDoc) =>
   setSessionCookie(res, { sub: user.id as string, kind: 'user', ver: user.tokenVersion });
 
 /** One message for "unknown number" and "wrong PIN", so sign-in doesn't reveal who is registered (R13 AC3). */
@@ -90,7 +94,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
 
   startUserSession(res, user);
-  res.status(201).json(userMe(user, group));
+  res.status(201).json(await userMe(user, group));
 }
 
 /** POST /api/auth/login — R13 AC3 (lockout after 5 wrong PINs). */
@@ -105,7 +109,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   }
 
   startUserSession(res, user);
-  res.json(userMe(user, await Group.findById(user.groupId)));
+  res.json(await userMe(user, await Group.findById(user.groupId)));
 }
 
 /** POST /api/auth/admin/login — R13 AC5. */
@@ -150,7 +154,7 @@ export async function me(req: Request, res: Response): Promise<void> {
     return;
   }
   const user = req.user!;
-  res.json(userMe(user, await Group.findById(user.groupId)));
+  res.json(await userMe(user, await Group.findById(user.groupId)));
 }
 
 /** PUT /api/me — change own name. Mobile and group can't be changed here (R13 AC4). */
@@ -158,7 +162,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
   const user = req.user!;
   user.name = (req.body as UpdateMeBody).name;
   await user.save();
-  res.json(userMe(user, await Group.findById(user.groupId)));
+  res.json(await userMe(user, await Group.findById(user.groupId)));
 }
 
 /**

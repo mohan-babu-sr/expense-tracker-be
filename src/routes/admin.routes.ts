@@ -10,6 +10,7 @@ import {
   listGroups,
   listUsers,
   rejectUser,
+  removeUserPasskeys,
   resetUserPin,
 } from '../controllers/admin.controller';
 import { asyncHandler } from '../middleware/async-handler';
@@ -51,3 +52,4 @@ adminRouter.post('/users/:id/approve', asyncHandler(approveUser));
 adminRouter.post('/users/:id/reject', asyncHandler(rejectUser));
 adminRouter.post('/users/:id/disable', asyncHandler(disableUser));
 adminRouter.post('/users/:id/enable', asyncHandler(enableUser));
+adminRouter.delete('/users/:id/passkeys', asyncHandler(removeUserPasskeys)); // R26 AC9

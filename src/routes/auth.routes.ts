@@ -11,6 +11,12 @@ import {
   updateMe,
   verifyPin,
 } from '../controllers/auth.controller';
+import {
+  deletePasskey,
+  listPasskeys,
+  verifyPasskey,
+  verifyPasskeyOptions,
+} from '../controllers/webauthn.controller';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth, requireUser } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -22,6 +28,7 @@ import {
   updateMeSchema,
   verifyPinSchema,
 } from '../validators/auth.schema';
+import { authenticationVerifySchema, emptySchema } from '../validators/webauthn.schema';
 
 /**
  * Per-IP limit on sign-in / register (design §8.1): 20 FAILED requests per 15 minutes.
@@ -30,7 +37,7 @@ import {
  * Note: through the Vercel rewrite all browsers reach Render from Vercel's servers, so the "IP" is often
  * shared — fine for a household app; the per-account lockout is the main protection.
  */
-const signInLimiter = rateLimit({
+export const signInLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   skipSuccessfulRequests: true,
@@ -56,3 +63,8 @@ meRouter.use(requireAuth, requireUser);
 meRouter.put('/', validate(updateMeSchema), asyncHandler(updateMe));
 meRouter.put('/pin', validate(changePinSchema), asyncHandler(changePin));
 meRouter.post('/verify-pin', validate(verifyPinSchema), asyncHandler(verifyPin));
+// Fingerprint / Face ID devices and the salary unlock (R26 AC3–AC4, R27 — design §15.3).
+meRouter.get('/passkeys', asyncHandler(listPasskeys));
+meRouter.delete('/passkeys/:id', asyncHandler(deletePasskey));
+meRouter.post('/verify-passkey/options', validate(emptySchema), asyncHandler(verifyPasskeyOptions));
+meRouter.post('/verify-passkey', validate(authenticationVerifySchema), asyncHandler(verifyPasskey));

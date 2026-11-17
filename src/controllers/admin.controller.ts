@@ -3,6 +3,7 @@ import { Types, type QueryFilter } from 'mongoose';
 import { HttpError } from '../middleware/error-handler';
 import { Admin } from '../models/admin.model';
 import { Group } from '../models/group.model';
+import { Passkey } from '../models/passkey.model';
 import { User, type IUser, type UserDoc } from '../models/user.model';
 import { escapeRegex } from '../services/filter-builder';
 import { createGroup } from '../services/group.service';
@@ -47,11 +48,26 @@ async function roleForNewMember(groupId: Types.ObjectId, exceptUserId?: Types.Ob
   return others ? 'member' : 'owner';
 }
 
-/** User row for the admin list: the user (no secrets — toJSON) + its group's name/code. */
+/**
+ * User row for the admin list: the user (no secrets — toJSON) + its group's name/code + how many
+ * fingerprint / Face ID devices it has (R26 AC9).
+ */
 async function withGroups(users: UserDoc[]) {
-  const groups = await Group.find({ _id: { $in: users.map((u) => u.groupId) } });
+  const ids = users.map((u) => u._id);
+  const [groups, counts] = await Promise.all([
+    Group.find({ _id: { $in: users.map((u) => u.groupId) } }),
+    Passkey.aggregate<{ _id: Types.ObjectId; n: number }>([
+      { $match: { userId: { $in: ids } } },
+      { $group: { _id: '$userId', n: { $sum: 1 } } },
+    ]),
+  ]);
   const byId = new Map(groups.map((g) => [g.id as string, { id: g.id as string, name: g.name, code: g.code }]));
-  return users.map((u) => ({ ...u.toJSON(), group: byId.get(u.groupId.toString()) ?? null }));
+  const countById = new Map(counts.map((c) => [c._id.toString(), c.n]));
+  return users.map((u) => ({
+    ...u.toJSON(),
+    group: byId.get(u.groupId.toString()) ?? null,
+    passkeyCount: countById.get(u.id as string) ?? 0,
+  }));
 }
 
 /** Saves, turning a duplicate-mobile race into a clean 409. */
@@ -206,6 +222,7 @@ export async function rejectUser(req: Request, res: Response): Promise<void> {
   const user = await findUserOr404(req);
   if (user.status !== 'pending') throw new HttpError(409, 'Only pending users can be rejected');
   await user.deleteOne();
+  await Passkey.deleteMany({ userId: user._id });
   res.status(204).end();
 }
 
@@ -227,4 +244,14 @@ export async function enableUser(req: Request, res: Response): Promise<void> {
   user.status = 'active';
   await user.save();
   res.status(204).end();
+}
+
+/**
+ * DELETE /api/admin/users/:id/passkeys — R26 AC9: a lost phone when the user can't reach Settings.
+ * Their PIN still works; sessions are untouched (use disable / reset PIN for that).
+ */
+export async function removeUserPasskeys(req: Request, res: Response): Promise<void> {
+  const user = await findUserOr404(req);
+  const { deletedCount } = await Passkey.deleteMany({ userId: user._id });
+  res.json({ removed: deletedCount });
 }

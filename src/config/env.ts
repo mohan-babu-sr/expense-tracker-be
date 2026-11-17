@@ -33,9 +33,36 @@ const envSchema = z.object({
     .min(32, 'JWT_SECRET must be at least 32 characters'),
   /** Password of the auto-created admin account; must be changed on first sign-in (R13 AC5). */
   ADMIN_INITIAL_PASSWORD: z.string().min(1).default('admin'),
+  /**
+   * Passkeys (R26, design §15.4). RP ID = the domain the browser shows (the Vercel site — /api is proxied there),
+   * ORIGINS = the full page origins allowed to use passkeys. Public config, not secrets.
+   * Defaults suit `ng serve`; production must set both (checked below).
+   */
+  WEBAUTHN_RP_ID: z.string().trim().min(1).optional(),
+  WEBAUTHN_ORIGINS: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .transform((v) => v?.split(',').map((o) => o.trim()).filter(Boolean)),
+  WEBAUTHN_RP_NAME: z.string().trim().min(1).default('Expense Tracker'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema
+  .superRefine((v, ctx) => {
+    if (v.NODE_ENV !== 'production') return;
+    for (const key of ['WEBAUTHN_RP_ID', 'WEBAUTHN_ORIGINS'] as const) {
+      if (!v[key]?.length) {
+        ctx.addIssue({ code: 'custom', path: [key], message: `${key} is required in production (design §15.4)` });
+      }
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    WEBAUTHN_RP_ID: v.WEBAUTHN_RP_ID ?? 'localhost',
+    WEBAUTHN_ORIGINS: v.WEBAUTHN_ORIGINS?.length ? v.WEBAUTHN_ORIGINS : ['http://localhost:4200'],
+  }))
+  .safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment configuration:');

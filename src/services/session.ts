@@ -22,7 +22,7 @@ export interface SessionPayload {
   ver: number;
 }
 
-const cookieOptions: CookieOptions = {
+export const cookieOptions: CookieOptions = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax',
