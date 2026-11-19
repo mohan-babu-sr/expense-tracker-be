@@ -17,6 +17,7 @@ import {
   verifyPasskey,
   verifyPasskeyOptions,
 } from '../controllers/webauthn.controller';
+import { subscribe, testPush, unsubscribe, updateNotify } from '../controllers/push.controller';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireAuth, requireUser } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -28,7 +29,9 @@ import {
   updateMeSchema,
   verifyPinSchema,
 } from '../validators/auth.schema';
+import { endpointBodySchema, notifySchema, subscribeSchema } from '../validators/push.schema';
 import { authenticationVerifySchema, emptySchema } from '../validators/webauthn.schema';
+import { pushLimiter } from './push.routes';
 
 /**
  * Per-IP limit on sign-in / register (design §8.1): 20 FAILED requests per 15 minutes.
@@ -51,7 +54,7 @@ export const authRouter = Router();
 authRouter.post('/register', signInLimiter, validate(registerSchema), asyncHandler(register));
 authRouter.post('/login', signInLimiter, validate(loginSchema), asyncHandler(login));
 authRouter.post('/admin/login', signInLimiter, validate(adminLoginSchema), asyncHandler(adminLogin));
-authRouter.post('/logout', logout);
+authRouter.post('/logout', asyncHandler(logout));
 // R13 AC1a: needs a valid session (it changes the account). Pending users and the admin may use it too.
 authRouter.post('/logout-all', requireAuth, asyncHandler(logoutAll));
 authRouter.get('/me', requireAuth, asyncHandler(me));
@@ -68,3 +71,8 @@ meRouter.get('/passkeys', asyncHandler(listPasskeys));
 meRouter.delete('/passkeys/:id', asyncHandler(deletePasskey));
 meRouter.post('/verify-passkey/options', validate(emptySchema), asyncHandler(verifyPasskeyOptions));
 meRouter.post('/verify-passkey', validate(authenticationVerifySchema), asyncHandler(verifyPasskey));
+// Notifications on this device + what I want them about (R28 AC1–AC2, AC6 — design §16.3).
+meRouter.post('/push-subscriptions', validate(subscribeSchema), asyncHandler(subscribe));
+meRouter.delete('/push-subscriptions', validate(endpointBodySchema), asyncHandler(unsubscribe));
+meRouter.post('/push-subscriptions/test', pushLimiter, validate(endpointBodySchema), asyncHandler(testPush));
+meRouter.put('/notify', validate(notifySchema), asyncHandler(updateNotify));

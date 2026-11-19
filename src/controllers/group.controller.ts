@@ -4,6 +4,7 @@ import { HttpError } from '../middleware/error-handler';
 import { Group } from '../models/group.model';
 import { Passkey } from '../models/passkey.model';
 import { User } from '../models/user.model';
+import { removeSubscriptionsOf } from '../services/push';
 
 /**
  * GET /api/groups/current — the caller's group with its members and pending join requests
@@ -48,5 +49,6 @@ export async function rejectPending(req: Request, res: Response): Promise<void> 
   const user = await findPendingOr404(req);
   await user.deleteOne(); // its session stops working: requireAuth can't find the account any more
   await Passkey.deleteMany({ userId: user._id }); // design §15.4
+  await removeSubscriptionsOf(user._id); // R28 AC7
   res.status(204).end();
 }

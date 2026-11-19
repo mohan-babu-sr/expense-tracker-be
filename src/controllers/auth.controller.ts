@@ -1,14 +1,17 @@
 import type { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import { Types, isValidObjectId } from 'mongoose';
 import { HttpError } from '../middleware/error-handler';
 import { Admin, type AdminDoc } from '../models/admin.model';
 import { Group } from '../models/group.model';
 import { Passkey } from '../models/passkey.model';
+import { PushSubscription } from '../models/push-subscription.model';
+import { removeSubscriptionsOf } from '../services/push';
+import { logoutSchema } from '../validators/push.schema';
 import { User, type UserDoc } from '../models/user.model';
 import { createGroup, findGroupByCode, removeGroup, type GroupDoc } from '../services/group.service';
 import { verifySecretWithLockout } from '../services/lockout';
 import { hashSecret } from '../services/secret';
-import { clearSessionCookie, setSessionCookie } from '../services/session';
+import { clearSessionCookie, readSession, setSessionCookie } from '../services/session';
 import type {
   AdminLoginBody,
   ChangePinBody,
@@ -125,8 +128,17 @@ export async function adminLogin(req: Request, res: Response): Promise<void> {
   res.json(adminMe(admin!));
 }
 
-/** POST /api/auth/logout — always succeeds, even without a session. */
-export function logout(_req: Request, res: Response): void {
+/**
+ * POST /api/auth/logout — always succeeds, even without a session.
+ * Optional `{ pushEndpoint }`: this device's notifications stop too, so a shared phone doesn't keep getting the
+ * previous person's alerts (R28 AC7). Only removed when it belongs to the session's user.
+ */
+export async function logout(req: Request, res: Response): Promise<void> {
+  const { pushEndpoint } = logoutSchema.parse(req.body ?? {});
+  const session = readSession(req);
+  if (pushEndpoint && session?.kind === 'user' && isValidObjectId(session.sub)) {
+    await PushSubscription.deleteOne({ userId: session.sub, endpoint: pushEndpoint });
+  }
   clearSessionCookie(res);
   res.status(204).end();
 }
@@ -142,6 +154,7 @@ export async function logoutAll(req: Request, res: Response): Promise<void> {
     await Admin.updateOne({ _id: req.admin._id }, { $inc: { tokenVersion: 1 } });
   } else {
     await User.updateOne({ _id: req.user!._id }, { $inc: { tokenVersion: 1 } });
+    await removeSubscriptionsOf(req.user!._id); // R28 AC7: no notifications on any device either
   }
   clearSessionCookie(res);
   res.status(204).end();

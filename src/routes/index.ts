@@ -9,6 +9,7 @@ import { categoryRouter } from './category.routes';
 import { dashboardRouter } from './dashboard.routes';
 import { expenseRouter } from './expense.routes';
 import { planRouter, regularItemRouter, savingsRouter } from './plan.routes';
+import { pushRouter } from './push.routes';
 import { upcomingRouter } from './upcoming.routes';
 import { webauthnRouter } from './webauthn.routes';
 
@@ -26,6 +27,7 @@ apiRouter.get('/health', (_req, res) => {
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/me', meRouter);
 apiRouter.use('/webauthn', webauthnRouter); // passkeys (R26) — own guards inside
+apiRouter.use('/push', pushRouter); // notifications (R28) — public key + cron-protected daily run
 apiRouter.use('/admin', adminRouter); // own guards inside (admin only, password change first)
 
 /**

@@ -9,6 +9,7 @@ import { User } from '../models/user.model';
 import { toCsv } from '../services/csv';
 import { parseIsoDate, toIsoDate, todayIso } from '../services/date-utils';
 import { buildExpenseFilter, escapeRegex } from '../services/filter-builder';
+import { budgetAlertsAfterResponse } from '../services/budget-alerts';
 import { assertSalaryEntered } from '../services/plan';
 import type { ExpenseBody, ExpenseFilter, ExpenseListQuery, MerchantQuery } from '../validators/expense.schema';
 
@@ -162,6 +163,7 @@ export async function createExpense(req: Request, res: Response): Promise<void> 
   await assertSalaryEntered(fields.groupId, fields.userId, fields.date); // R17 AC3: salary first
   const expense = await Expense.create(fields);
   await expense.populate(EXPENSE_POPULATE);
+  budgetAlertsAfterResponse(res, fields.groupId, toIsoDate(fields.date).slice(0, 7)); // R28 AC4
   res.status(201).json(expense);
 }
 
@@ -179,6 +181,8 @@ export async function updateExpense(req: Request, res: Response): Promise<void> 
   expense.set(fields);
   await expense.save();
   await expense.populate(EXPENSE_POPULATE);
+  // R28 AC4: only the month the expense is in NOW can go up; the month it left can only go down.
+  budgetAlertsAfterResponse(res, fields.groupId, monthOf(fields.date));
   res.json(expense);
 }
 
@@ -207,5 +211,6 @@ export async function restoreExpense(req: Request, res: Response): Promise<void>
   }
   await expense.save();
   await expense.populate(EXPENSE_POPULATE);
+  budgetAlertsAfterResponse(res, groupId, toIsoDate(expense.date).slice(0, 7)); // R28 AC4
   res.json(expense);
 }

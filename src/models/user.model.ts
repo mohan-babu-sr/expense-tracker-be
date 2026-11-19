@@ -17,6 +17,17 @@ export interface Lockable {
   tokenVersion: number;
 }
 
+/** "Remind me N days before" choices for Upcoming notifications (R28 AC2). */
+export const NOTIFY_DAYS_BEFORE = [1, 3, 7] as const;
+export type NotifyDaysBefore = (typeof NOTIFY_DAYS_BEFORE)[number];
+
+/** What this person wants notifications about — account-wide, for all their devices (R28 AC2, design §16.2). */
+export interface NotifyPrefs {
+  upcoming: boolean;
+  daysBefore: NotifyDaysBefore;
+  budget: boolean;
+}
+
 /** A person who signs in with mobile + PIN — design §8.2 (R13). One group per user. */
 export interface IUser extends Lockable {
   name: string;
@@ -28,6 +39,8 @@ export interface IUser extends Lockable {
   status: UserStatus;
   /** Monthly spending limit set by the group owner; null = no limit (R15, design §10.1). */
   monthlyLimit: number | null;
+  /** Notification choices (R28). Mongoose defaults fill it for existing users — no migration. */
+  notify: NotifyPrefs;
 }
 
 export type UserDoc = HydratedDocument<IUser>;
@@ -44,6 +57,11 @@ const userSchema = new Schema<IUser>(
     failedAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date, default: null },
     tokenVersion: { type: Number, default: 0 },
+    notify: {
+      upcoming: { type: Boolean, default: true },
+      daysBefore: { type: Number, enum: NOTIFY_DAYS_BEFORE, default: 3 },
+      budget: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: true,

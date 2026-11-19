@@ -6,6 +6,7 @@ import { Group } from '../models/group.model';
 import { Passkey } from '../models/passkey.model';
 import { User, type IUser, type UserDoc } from '../models/user.model';
 import { escapeRegex } from '../services/filter-builder';
+import { removeSubscriptionsOf } from '../services/push';
 import { createGroup } from '../services/group.service';
 import { verifySecretWithLockout } from '../services/lockout';
 import { hashSecret } from '../services/secret';
@@ -223,6 +224,7 @@ export async function rejectUser(req: Request, res: Response): Promise<void> {
   if (user.status !== 'pending') throw new HttpError(409, 'Only pending users can be rejected');
   await user.deleteOne();
   await Passkey.deleteMany({ userId: user._id });
+  await removeSubscriptionsOf(user._id); // R28 AC7
   res.status(204).end();
 }
 
@@ -234,6 +236,7 @@ export async function disableUser(req: Request, res: Response): Promise<void> {
     user.tokenVersion += 1;
     await user.save();
   }
+  await removeSubscriptionsOf(user._id); // R28 AC7: a disabled user gets no notifications
   res.status(204).end();
 }
 
